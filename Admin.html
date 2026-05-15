@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Quadrant Technologies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
+        .purple-gradient { background: linear-gradient(135deg, #6b46c1, #7c3aed); }
+        .status-pending  { background:#fef3c7;color:#854d0e;padding:3px 10px;border-radius:9999px;font-size:.8rem; }
+        .status-approved { background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:9999px;font-size:.8rem; }
+        .status-rejected { background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:9999px;font-size:.8rem; }
+        .summary-card { padding:12px 16px;height:92px;transition:transform .18s ease,box-shadow .18s ease;cursor:default; }
+        .summary-card:hover { transform:translateY(-5px);box-shadow:0 12px 28px rgba(0,0,0,.12); }
+        .table-container { overflow-x:auto;scrollbar-width:thin; }
+        th,td { padding:12px 8px !important;font-size:13.5px; }
+        tr.row-pending  { background:#fffbeb; }
+        tr.row-rejected { background:#fff5f5; }
+        tr.row-overstay { background:#fff0e0 !important; }
+        tr.row-approved { background:#f0fdf4; }
+        .badge-overstay { background:#fde68a;color:#92400e;padding:2px 8px;border-radius:9999px;font-size:.72rem;font-weight:600; }
+        /* Calendar */
+        .cal-wrapper { position:relative;min-width:200px; }
+        .cal-input-btn { width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:12px;font-size:13px;background:white;cursor:pointer;text-align:left;color:#374151;display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap; }
+        .cal-input-btn:hover { border-color:#7c3aed; }
+        .cal-input-btn.active { border-color:#7c3aed;box-shadow:0 0 0 2px #ede9fe; }
+        .cal-popup { display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:300;background:white;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.15);padding:16px;width:300px; }
+        .cal-popup.show { display:block; }
+        .cal-nav { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px; }
+        .cal-nav button { width:30px;height:30px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center; }
+        .cal-nav button:hover { background:#f3f4f6; }
+        .cal-month-label { font-weight:600;font-size:14px;color:#111827; }
+        .cal-day-names { display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px; }
+        .cal-day-name { text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px 0; }
+        .cal-dates { display:grid;grid-template-columns:repeat(7,1fr);gap:2px; }
+        .cal-date { height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;transition:all .1s; }
+        .cal-date:hover:not(.cal-empty) { background:#f3f4f6; }
+        .cal-date.cal-empty { cursor:default; }
+        .cal-date.cal-today { font-weight:700;color:#7c3aed; }
+        .cal-date.cal-selected-start,.cal-date.cal-selected-end { background:#7c3aed !important;color:white !important;font-weight:600; }
+        .cal-date.cal-in-range { background:#ede9fe;color:#5b21b6;border-radius:0; }
+        .cal-date.cal-selected-start { border-radius:8px 0 0 8px; }
+        .cal-date.cal-selected-end   { border-radius:0 8px 8px 0; }
+        .cal-date.cal-selected-start.cal-selected-end { border-radius:8px; }
+        .cal-footer { display:flex;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid #f3f4f6;gap:8px; }
+        .cal-footer button { flex:1;padding:7px 0;border-radius:10px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid #e5e7eb;background:white;color:#374151; }
+        .cal-footer button:hover { background:#f9fafb; }
+        .cal-footer .btn-today { background:#7c3aed;color:white;border-color:#7c3aed; }
+        .cal-footer .btn-today:hover { background:#6d28d9; }
+        .cal-footer .btn-clear { color:#ef4444;border-color:#fecaca; }
+        .cal-footer .btn-clear:hover { background:#fef2f2; }
+        #analyticsPanel { display:none; }
+        #analyticsPanel.show { display:block; }
+        ::-webkit-scrollbar { width:5px;height:5px; }
+        ::-webkit-scrollbar-thumb { background:#c4b5fd;border-radius:10px; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- LOGIN -->
+<div id="loginScreen" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+    <div class="max-w-md w-full px-8 py-12 bg-white rounded-3xl shadow-2xl">
+        <div class="text-center">
+            <div class="purple-gradient w-16 h-16 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl font-bold">Q</div>
+            <h1 class="text-2xl font-bold text-gray-900 mt-5">Admin Login</h1>
+            <p class="text-gray-500 mt-1 text-sm">Restricted — Authorised Personnel Only</p>
+        </div>
+        <div class="mt-8 space-y-5">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Full Name</label>
+                <input id="loginName" class="w-full px-4 py-3 border border-gray-300 rounded-2xl text-base" placeholder="Enter your full name">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Employee ID</label>
+                <input id="loginEmpId" class="w-full px-4 py-3 border border-gray-300 rounded-2xl text-base" placeholder="e.g. QT-ADMIN-001">
+            </div>
+            <button onclick="performLogin()" class="w-full purple-gradient text-white font-semibold py-4 rounded-2xl text-lg mt-2">Login to Admin Portal</button>
+        </div>
+    </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden flex flex-col min-h-screen">
+
+    <!-- NAV -->
+    <nav class="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="purple-gradient w-9 h-9 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">Q</div>
+            <div>
+                <h1 class="text-xl font-bold text-gray-900">Quadrant Technologies</h1>
+                <p class="text-purple-600 text-xs -mt-1">Admin Operations</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+          
+            <button onclick="exportCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium flex items-center gap-2">
+                ⬇️ Export CSV
+            </button>
+            <div class="relative">
+                <button onclick="toggleProfileMenu()" class="flex items-center gap-3 px-4 py-2 rounded-2xl hover:bg-gray-100">
+                    <div class="text-right">
+                        <p class="font-medium text-sm" id="secName">Admin</p>
+                        <p class="text-xs text-gray-500" id="secId">QT-ADMIN-001</p>
+                    </div>
+                    <div class="w-8 h-8 bg-purple-100 rounded-2xl flex items-center justify-center text-lg">👤</div>
+                </button>
+                <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border py-2 z-50">
+                    <div class="px-4 py-3 border-b">
+                        <p class="text-xs text-gray-500">Logged in as</p>
+                        <p class="font-medium" id="dropdownName">Admin</p>
+                        <p class="text-xs text-gray-500" id="dropdownId">QT-ADMIN-001</p>
+                    </div>
+                    <button onclick="openRegisterModal()" class="w-full px-4 py-3 text-left hover:bg-purple-50 text-purple-600 flex items-center gap-2 text-sm">
+    ➕ Register User
+</button>
+
+<button onclick="toggleUserList()" class="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 flex items-center gap-2 text-sm">
+    👥 Registered Users
+</button>
+                    <button onclick="logout()" class="w-full px-4 py-3 text-left hover:bg-red-50 text-red-600 flex items-center gap-2 text-sm"><span>🚪</span> Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="px-6 pt-5 space-y-4">
+        <!-- 5 SUMMARY CARDS -->
+        <div class="grid grid-cols-5 gap-3">
+            <div class="summary-card bg-white rounded-2xl shadow p-4">
+                <p class="text-xs text-gray-500">Total Visitors</p>
+                <p class="text-3xl font-bold text-gray-900 mt-1" id="totalCount">0</p>
+            </div>
+            <div class="summary-card bg-white rounded-2xl shadow p-4 border-t-4 border-purple-400">
+                <p class="text-xs text-gray-500">Today's Visitors</p>
+                <p class="text-3xl font-bold text-purple-600 mt-1" id="todayCount">0</p>
+            </div>
+            <div class="summary-card bg-white rounded-2xl shadow p-4">
+                <p class="text-xs text-gray-500">Pending</p>
+                <p class="text-3xl font-bold text-amber-600 mt-1" id="pendingCount">0</p>
+            </div>
+            <div class="summary-card bg-white rounded-2xl shadow p-4">
+                <p class="text-xs text-gray-500">Allowed</p>
+                <p class="text-3xl font-bold text-emerald-600 mt-1" id="allowedCount">0</p>
+            </div>
+            <div class="summary-card bg-white rounded-2xl shadow p-4 border-t-4 border-orange-400">
+                <p class="text-xs text-gray-500">⚠ Overstay Alert</p>
+                <p class="text-3xl font-bold text-orange-500 mt-1" id="overstayCount">0</p>
+            </div>
+        </div>
+
+        <!-- ANALYTICS PANEL -->
+        <div id="analyticsPanel" class="bg-white rounded-2xl shadow p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-base font-semibold text-gray-800">📊 Visitor Analytics</h2>
+                <button onclick="toggleAnalytics()" class="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">×</button>
+            </div>
+            <div class="grid grid-cols-3 gap-6">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 mb-3">Last 7 Days — Visitor Trend</p>
+                    <canvas id="trendChart" height="160"></canvas>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 mb-3">Status Breakdown</p>
+                    <canvas id="statusChart" height="160"></canvas>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 mb-3">Top 5 Employees by Visitors</p>
+                    <canvas id="empChart" height="160"></canvas>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="px-6 pt-4 pb-3 bg-white border-b mt-4">
+        <div class="flex items-end gap-3 flex-wrap">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs text-gray-600 mb-1">Search Visitor</label>
+                <input type="text" id="searchInput" placeholder="Name or Aadhaar..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm" oninput="filterInMemory()">
+            </div>
+            
+        
+            <div class="min-w-[140px]">
+                <label class="block text-xs text-gray-600 mb-1">Status</label>
+                <select id="statusFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-white">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Date</label>
+                <div class="cal-wrapper" id="calWrapper">
+                    <button class="cal-input-btn" id="calTrigger" onclick="toggleCalendar(event)">
+                        <span id="calDisplay">dd/mm/yyyy</span>
+                        <span style="color:#9ca3af;font-size:15px;">📅</span>
+                    </button>
+                    <div class="cal-popup" id="calPopup">
+                        <div class="cal-nav">
+                            <button onclick="changeMonth(-1)">&#8249;</button>
+                            <span class="cal-month-label" id="calMonthLabel"></span>
+                            <button onclick="changeMonth(1)">&#8250;</button>
+                        </div>
+                        <div class="cal-day-names">
+                            <div class="cal-day-name">Su</div><div class="cal-day-name">Mo</div>
+                            <div class="cal-day-name">Tu</div><div class="cal-day-name">We</div>
+                            <div class="cal-day-name">Th</div><div class="cal-day-name">Fr</div>
+                            <div class="cal-day-name">Sa</div>
+                        </div>
+                        <div class="cal-dates" id="calDates"></div>
+                        <div class="cal-footer">
+                            <button class="btn-clear" onclick="clearCalendar()">Clear</button>
+                            <button class="btn-today" onclick="setToday()">Today</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="applyFilters()" class="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl">Apply Filter</button>
+                <button onclick="clearFilter()" class="px-5 py-2.5 border border-gray-300 hover:bg-gray-100 rounded-xl text-sm font-medium">Clear Filter</button>
+                <button onclick="refreshDashboard()" class="px-5 py-2.5 border border-gray-300 hover:bg-gray-100 rounded-xl text-sm font-medium flex items-center gap-1">↻ Refresh</button>
+            </div>
+        </div>
+       
+    
+
+    <!-- TABLE -->
+    <div class="px-6 py-4 flex-1">
+        <div class="table-container bg-white rounded-2xl shadow overflow-auto" style="max-height:calc(100vh - 400px)">
+            <table class="w-full min-w-[1750px]">
+                <thead class="sticky top-0 z-10" style="background:linear-gradient(90deg,#1e293b 0%,#334155 100%);">
+                    <tr>
+                        <th class="p-4 text-left w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()" style="accent-color:#a78bfa;"></th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">S.No</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Visitor ID</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Visitor Name</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Email ID</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Aadhaar</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Entry Date</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Purpose</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Employee Name</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">In Time</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Out Time</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Duration</th>
+                        <th class="p-4 text-left text-xs font-bold tracking-wide" style="color:#e2e8f0;">Status</th>
+                        <th class="p-4 text-center text-xs font-bold tracking-wide" style="color:#e2e8f0;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y text-sm"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- AADHAAR MODAL -->
+<div id="aadhaarModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[110]">
+    <div class="bg-white rounded-3xl max-w-lg w-full mx-4 shadow-2xl">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Aadhaar Card Preview</h3>
+                <button onclick="closeAadhaarModal()" class="text-3xl text-gray-400 hover:text-gray-600 font-bold">×</button>
+            </div>
+            <div class="bg-gray-50 border border-dashed border-purple-300 rounded-2xl p-4 text-center min-h-[300px] flex items-center justify-center">
+                <img id="aadhaarImage" src="" class="mx-auto rounded-xl max-h-80 object-contain"
+                     alt="Aadhaar Preview" onerror="this.onerror=null;this.src='https://via.placeholder.com/520x340/6b46c1/ffffff?text=No+Image+Available';">
+            </div>
+            <p id="aadhaarNumberDisplay" class="mt-4 font-mono text-center text-lg"></p>
+            <button onclick="closeAadhaarModal()" class="w-full mt-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-2xl text-sm font-medium">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const BASE_URL = "https://obyagk4ye4.execute-api.ap-south-1.amazonaws.com";
+let visitors = [], filtered = [], selectedIds = new Set();
+let trendChart, statusChart, empChart;
+let currentPage = 1;
+const PAGE_SIZE = 10;
+
+// ── CALENDAR ──────────────────────────────────────────────
+let calStartDate=null, calEndDate=null;
+let calViewYear=new Date().getFullYear(), calViewMonth=new Date().getMonth();
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function toggleCalendar(e){
+    e.stopPropagation();
+    const popup=document.getElementById('calPopup'),trigger=document.getElementById('calTrigger');
+    const isOpen=popup.classList.contains('show');
+    popup.classList.toggle('show',!isOpen); trigger.classList.toggle('active',!isOpen);
+    if(!isOpen) renderCalendarDates();
+}
+function changeMonth(dir){
+    calViewMonth+=dir;
+    if(calViewMonth>11){calViewMonth=0;calViewYear++;} if(calViewMonth<0){calViewMonth=11;calViewYear--;}
+    renderCalendarDates();
+}
+function renderCalendarDates(){
+    document.getElementById('calMonthLabel').textContent=`${MONTHS[calViewMonth]} ${calViewYear}`;
+    const c=document.getElementById('calDates'); c.innerHTML='';
+    const firstDay=new Date(calViewYear,calViewMonth,1).getDay();
+    const dim=new Date(calViewYear,calViewMonth+1,0).getDate();
+    const today=new Date();
+    for(let i=0;i<firstDay;i++){const e=document.createElement('div');e.classList.add('cal-date','cal-empty');c.appendChild(e);}
+    for(let d=1;d<=dim;d++){
+        const cell=document.createElement('div'); cell.classList.add('cal-date'); cell.textContent=d;
+        if(d===today.getDate()&&calViewMonth===today.getMonth()&&calViewYear===today.getFullYear()) cell.classList.add('cal-today');
+        const t={year:calViewYear,month:calViewMonth,day:d};
+        if(calStartDate&&sameDay(t,calStartDate)) cell.classList.add('cal-selected-start');
+        if(calEndDate&&sameDay(t,calEndDate)) cell.classList.add('cal-selected-end');
+        if(calStartDate&&calEndDate&&inRange(t,calStartDate,calEndDate)) cell.classList.add('cal-in-range');
+        cell.onclick=()=>pickDate(t); c.appendChild(cell);
+    }
+}
+function sameDay(a,b){return a.year===b.year&&a.month===b.month&&a.day===b.day;}
+function dateToNum(d){return d.year*10000+d.month*100+d.day;}
+function inRange(d,s,e){const n=dateToNum(d),sn=dateToNum(s),en=dateToNum(e);return n>Math.min(sn,en)&&n<Math.max(sn,en);}
+function pickDate(dateObj){
+    if(!calStartDate||(calStartDate&&calEndDate)){calStartDate=dateObj;calEndDate=null;}
+    else{if(dateToNum(dateObj)<dateToNum(calStartDate)){calEndDate=calStartDate;calStartDate=dateObj;}else calEndDate=dateObj;}
+    renderCalendarDates(); updateCalDisplay();
+}
+function updateCalDisplay(){
+    const disp=document.getElementById('calDisplay');
+    if(calStartDate&&calEndDate) disp.textContent=`${fmt(calStartDate)} - ${fmt(calEndDate)}`;
+    else if(calStartDate) disp.textContent=fmt(calStartDate);
+    else disp.textContent='dd/mm/yyyy';
+}
+function fmt(d){return `${String(d.day).padStart(2,'0')}/${String(d.month+1).padStart(2,'0')}/${d.year}`;}
+function toISO(d){return `${d.year}-${String(d.month+1).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;}
+function clearCalendar(){calStartDate=null;calEndDate=null;updateCalDisplay();renderCalendarDates();}
+function setToday(){
+    const now=new Date();
+    calStartDate={year:now.getFullYear(),month:now.getMonth(),day:now.getDate()};calEndDate=null;
+    calViewYear=now.getFullYear();calViewMonth=now.getMonth();
+    renderCalendarDates();updateCalDisplay();
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+function formatTime(str){if(!str)return'-';return new Date(str).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});}
+function calcDuration(inT,outT){
+    if(!inT||!outT)return'-';
+    const diff=(new Date(outT)-new Date(inT))/60000;
+    return `${Math.floor(diff/60)}h ${Math.floor(diff%60)}m`;
+}
+function isOverstay(v){
+    if(v.status!=='approved'||v.out_time||!v.in_time)return false;
+    return(Date.now()-new Date(v.in_time))/3600000>8;
+}
+function getInitials(name){if(!name)return'?';return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
+function getAvatarColor(name){
+    const cols=['#7c3aed','#0891b2','#059669','#d97706','#dc2626','#0284c7','#be185d'];
+    let h=0; for(let c of(name||'')) h=c.charCodeAt(0)+((h<<5)-h);
+    return cols[Math.abs(h)%cols.length];
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────
+function toggleAnalytics(){
+    const p=document.getElementById('analyticsPanel');
+    p.classList.toggle('show');
+    if(p.classList.contains('show')) buildCharts();
+}
+function buildCharts(){ buildTrendChart(); buildStatusChart(); buildEmpChart(); }
+function buildTrendChart(){
+    const labels=[],counts=[];
+    for(let i=6;i>=0;i--){
+        const d=new Date();d.setDate(d.getDate()-i);
+        const iso=d.toISOString().split('T')[0];
+        labels.push(iso.slice(5));
+        counts.push(visitors.filter(v=>v.date&&v.date.split('T')[0]===iso).length);
+    }
+    if(trendChart) trendChart.destroy();
+    trendChart=new Chart(document.getElementById('trendChart'),{
+        type:'bar',
+        data:{labels,datasets:[{label:'Visitors',data:counts,backgroundColor:'#c4b5fd',borderRadius:6}]},
+        options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}},responsive:true}
+    });
+}
+function buildStatusChart(){
+    const p=visitors.filter(v=>v.status==='pending').length;
+    const a=visitors.filter(v=>v.status==='approved').length;
+    const r=visitors.filter(v=>v.status==='rejected').length;
+    if(statusChart) statusChart.destroy();
+    statusChart=new Chart(document.getElementById('statusChart'),{
+        type:'doughnut',
+        data:{labels:['Pending','Approved','Rejected'],datasets:[{data:[p,a,r],backgroundColor:['#fbbf24','#34d399','#f87171'],borderWidth:0}]},
+        options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,cutout:'65%'}
+    });
+}
+function buildEmpChart(){
+    const map={};
+    visitors.forEach(v=>{if(v.emp_name) map[v.emp_name]=(map[v.emp_name]||0)+1;});
+    const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    if(empChart) empChart.destroy();
+    empChart=new Chart(document.getElementById('empChart'),{
+        type:'bar',
+        data:{labels:sorted.map(e=>e[0]),datasets:[{label:'Visitors',data:sorted.map(e=>e[1]),backgroundColor:'#7c3aed',borderRadius:6}]},
+        options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}},responsive:true}
+    });
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────
+function exportCSV(){
+    if(!filtered.length) return alert('No data to export');
+    const headers=['S.No','Visitor ID','Name','Email','Entry Date','Purpose','Employee','In Time','Out Time','Duration','Status'];
+    const rows=filtered.map((v,i)=>[
+        i+1,v.visitor_id,v.name||'',v.email||'',
+        v.date?v.date.split('T')[0]:'',v.purpose||'',v.emp_name||'',
+        v.in_time?formatTime(v.in_time):'',v.out_time?formatTime(v.out_time):'',
+        calcDuration(v.in_time,v.out_time),v.status||''
+    ]);
+    const csv=[headers,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download=`visitors_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+}
+
+// ── CLEAR ─────────────────────────────────────────────────
+async function clearAllData(){
+    if(!confirm('This will delete ALL visitor records permanently.\nAre you sure?')) return;
+    try{await fetch(`${BASE_URL}/clear`,{method:'POST'});alert('All data cleared!');renderTable();}catch(e){alert('Failed to clear data');}
+}
+async function clearSelectedEntries(){
+    if(!selectedIds.size) return alert('No entries selected');
+    if(!confirm(`Delete ${selectedIds.size} selected visitor(s)?`)) return;
+    try{
+        for(let id of selectedIds) await fetch(`${BASE_URL}/clear`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:id})});
+        selectedIds.clear();alert('Deleted!');renderTable();
+    }catch(e){alert('Failed to delete');}
+}
+function toggleSelectAll(){
+    const cbs=document.querySelectorAll('input[type="checkbox"][data-id]');
+    const checked=document.getElementById('selectAll').checked;
+    selectedIds.clear();
+    cbs.forEach(cb=>{cb.checked=checked;if(checked)selectedIds.add(cb.dataset.id);});
+}
+function toggleSelection(id,cb){cb.checked?selectedIds.add(id):selectedIds.delete(id);}
+
+// ── AADHAAR ───────────────────────────────────────────────
+async function viewAadhaar(visitor_id){
+    if(!visitor_id) return alert('No visitor ID found');
+    try{
+        const res=await fetch(`${BASE_URL}/presigned?visitor_id=${visitor_id}`);
+        const data=await res.json();
+        if(res.ok&&data.presigned_url){
+            document.getElementById('aadhaarImage').src=data.presigned_url;
+            document.getElementById('aadhaarNumberDisplay').innerText=`Aadhaar - ${visitor_id}`;
+            document.getElementById('aadhaarModal').classList.remove('hidden');
+        }else alert(`Failed to load Aadhaar: ${data.error||'Unknown error'}`);
+    }catch(e){alert('Network error while loading Aadhaar');}
+}
+function closeAadhaarModal(){document.getElementById('aadhaarModal').classList.add('hidden');document.getElementById('aadhaarImage').src='';}
+
+// ── RENDER TABLE ──────────────────────────────────────────
+async function renderTable(){
+    document.getElementById('calPopup').classList.remove('show');
+    document.getElementById('calTrigger').classList.remove('active');
+    const tbody=document.getElementById('tableBody');
+    tbody.innerHTML=`<tr><td colspan="14" class="p-8 text-center text-gray-400">Loading...</td></tr>`;
+    try{
+        const res=await fetch(`${BASE_URL}/admin`);
+        const data=await res.json();
+        visitors=Array.isArray(data)?data:(data.Items||[]);
+    }catch(e){
+        tbody.innerHTML=`<tr><td colspan="14" style="height:320px;"></td></tr>`;
+        return;
+    }
+    populateEmpFilter();
+    applyFilters();
+}
+
+function applyFilters(){
+    const search=document.getElementById('searchInput').value.toLowerCase().trim();
+    const empVal=document.getElementById('empFilter').value;
+    const statusVal=document.getElementById('statusFilter').value;
+    const startISO=calStartDate?toISO(calStartDate):null;
+    const endISO=calEndDate?toISO(calEndDate):null;
+
+    filtered=visitors.filter(v=>{
+        const mSearch=!search||(v.name&&v.name.toLowerCase().includes(search))||(v.aadhaar&&v.aadhaar.includes(search));
+        const mEmp=!empVal||v.emp_name===empVal;
+        const mStatus=!statusVal||v.status===statusVal;
+        let mDate=true;
+        if(startISO&&endISO){const vd=v.date?v.date.split('T')[0]:'';mDate=vd>=startISO&&vd<=endISO;}
+        else if(startISO) mDate=v.date&&v.date.split('T')[0]===startISO;
+        return mSearch&&mEmp&&mStatus&&mDate;
+    });
+
+    currentPage=1;
+    renderPage();
+    updateCounts(filtered);
+    if(document.getElementById('analyticsPanel').classList.contains('show')) buildCharts();
+}
+
+function filterInMemory(){
+    applyFilters();
+}
+
+function renderPage(){
+    const tbody=document.getElementById('tableBody');
+    tbody.innerHTML='';
+
+    if(!filtered.length){
+        tbody.innerHTML=`<tr><td colspan="14" class="p-8 text-center text-gray-400">No visitors found</td></tr>`;
+        renderPagination();
+        return;
+    }
+
+    const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
+    if(currentPage>totalPages) currentPage=totalPages;
+    const start=(currentPage-1)*PAGE_SIZE;
+    const pageData=filtered.slice(start,start+PAGE_SIZE);
+
+    pageData.forEach((v,idx)=>{
+        const globalIdx=start+idx;
+        const overstay=isOverstay(v);
+        const rowClass=overstay?'row-overstay':v.status==='pending'?'row-pending':v.status==='approved'?'row-approved':'row-rejected';
+        const statusHTML=v.status==='pending'?`<span class="status-pending">Pending</span>`:v.status==='approved'?`<span class="status-approved">Approved</span>`:`<span class="status-rejected">Rejected</span>`;
+        let action='-';
+        if(v.status==='pending'){
+            action=`<div class="flex gap-2 justify-center">
+                <button onclick="allowVisitorDirect('${v.visitor_id}')" class="px-4 py-1 bg-emerald-600 text-white text-xs rounded-xl">Allow</button>
+                <button onclick="rejectVisitorDirect('${v.visitor_id}')" class="px-4 py-1 bg-red-600 text-white text-xs rounded-xl">Reject</button>
+            </div>`;
+        }else if(v.status==='approved'&&!v.out_time){
+            action=`<button onclick="exitVisitor('${v.visitor_id}')" class="px-4 py-1.5 bg-orange-600 text-white text-xs rounded-xl">Mark Exit</button>`;
+        }
+        const avatarBg=getAvatarColor(v.name);
+        const row=document.createElement('tr'); row.className=rowClass;
+        row.innerHTML=`
+            <td class="p-4"><input type="checkbox" data-id="${v.visitor_id}" onclick="toggleSelection('${v.visitor_id}',this)"></td>
+            <td class="p-4 text-gray-500">${globalIdx+1}</td>
+            <td class="p-4 font-mono text-xs">${v.visitor_id}</td>
+            <td class="p-4">
+                <div class="flex items-center gap-2">
+                    <div style="background:${avatarBg}" class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">${getInitials(v.name)}</div>
+                    <span>${v.name||'-'}</span>
+                    ${overstay?'<span class="badge-overstay">⚠ Overstay</span>':''}
+                </div>
+            </td>
+            <td class="p-4 text-gray-500 text-xs">${v.email||'-'}</td>
+            <td class="p-4"><button onclick="viewAadhaar('${v.visitor_id}')" class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl text-xs font-medium">👁️ View</button></td>
+            <td class="p-4">${v.date?v.date.split('T')[0]:'-'}</td>
+            <td class="p-4">${v.purpose||'-'}</td>
+            <td class="p-4 font-medium">${v.emp_name||'-'}</td>
+            <td class="p-4">${v.in_time?formatTime(v.in_time):'-'}</td>
+            <td class="p-4">${v.out_time?formatTime(v.out_time):'-'}</td>
+            <td class="p-4 text-xs text-gray-500">${calcDuration(v.in_time,v.out_time)}</td>
+            <td class="p-4">${statusHTML}</td>
+            <td class="p-4 text-center">${action}</td>`;
+        tbody.appendChild(row);
+    });
+    renderPagination();
+}
+
+function renderPagination(){
+    let pg=document.getElementById('paginationBar');
+    if(!pg){
+        pg=document.createElement('div');
+        pg.id='paginationBar';
+        pg.style.cssText='display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 0;flex-wrap:wrap;';
+        document.getElementById('tableBody').closest('.table-container').after(pg);
+    }
+    pg.innerHTML='';
+    const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
+    if(totalPages<=1){pg.style.display='none';return;}
+    pg.style.display='flex';
+
+    const info=document.createElement('span');
+    info.style.cssText='font-size:12px;color:#6b7280;margin-right:8px;';
+    const start=(currentPage-1)*PAGE_SIZE+1;
+    const end=Math.min(currentPage*PAGE_SIZE,filtered.length);
+    info.textContent=`${start}–${end} of ${filtered.length}`;
+    pg.appendChild(info);
+
+    const btn=(label,page,disabled,active)=>{
+        const b=document.createElement('button');
+        b.textContent=label;
+        b.disabled=disabled;
+        b.style.cssText=`min-width:34px;height:34px;padding:0 10px;border-radius:8px;font-size:13px;font-weight:500;cursor:${disabled?'default':'pointer'};border:1px solid ${active?'#7c3aed':'#e5e7eb'};background:${active?'#7c3aed':'white'};color:${active?'white':'#374151'};transition:all .15s;`;
+        if(!disabled&&!active) b.onmouseover=()=>{b.style.background='#f3f4f6';};
+        if(!disabled&&!active) b.onmouseout=()=>{b.style.background='white';};
+        if(!disabled) b.onclick=()=>{currentPage=page;renderPage();};
+        return b;
+    };
+
+    pg.appendChild(btn('‹',currentPage-1,currentPage===1,false));
+
+    let pages=[];
+    if(totalPages<=7){for(let i=1;i<=totalPages;i++)pages.push(i);}
+    else{
+        pages=[1];
+        if(currentPage>3)pages.push('…');
+        for(let i=Math.max(2,currentPage-1);i<=Math.min(totalPages-1,currentPage+1);i++)pages.push(i);
+        if(currentPage<totalPages-2)pages.push('…');
+        pages.push(totalPages);
+    }
+
+    pages.forEach(p=>{
+        if(p==='…'){const s=document.createElement('span');s.textContent='…';s.style.cssText='font-size:13px;color:#9ca3af;padding:0 4px;';pg.appendChild(s);}
+        else pg.appendChild(btn(p,p,false,p===currentPage));
+    });
+
+    pg.appendChild(btn('›',currentPage+1,currentPage===totalPages,false));
+}
+
+function populateEmpFilter(){
+    const sel=document.getElementById('empFilter');
+    const current=sel.value;
+    const names=[...new Set(visitors.map(v=>v.emp_name).filter(Boolean))].sort();
+    sel.innerHTML='<option value="">All Employees</option>';
+    names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;if(n===current)o.selected=true;sel.appendChild(o);});
+}
+
+function updateCounts(list){
+    const d=list||visitors;
+    const todayISO=new Date().toISOString().split('T')[0];
+    document.getElementById('totalCount').innerText=d.length;
+    document.getElementById('todayCount').innerText=d.filter(v=>v.date&&v.date.split('T')[0]===todayISO).length;
+    document.getElementById('pendingCount').innerText=d.filter(v=>v.status==='pending').length;
+    document.getElementById('allowedCount').innerText=d.filter(v=>v.status==='approved').length;
+    document.getElementById('overstayCount').innerText=d.filter(v=>isOverstay(v)).length;
+}
+
+function clearFilter(){
+    document.getElementById('searchInput').value='';
+    document.getElementById('empFilter').value='';
+    document.getElementById('statusFilter').value='';
+    clearCalendar(); applyFilters();
+}
+
+// ── ACTIONS ───────────────────────────────────────────────
+async function allowVisitorDirect(id){
+    try{await fetch(`${BASE_URL}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:id,status:'approved',in_time:new Date().toISOString()})});}catch(e){}
+    renderTable();
+}
+async function rejectVisitorDirect(id){
+    if(!confirm(`Reject visitor ${id}?`))return;
+    try{await fetch(`${BASE_URL}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:id,status:'rejected'})});}catch(e){}
+    renderTable();
+}
+function openRegisterModal(){
+    document.getElementById('registerModal').classList.remove('hidden');
+}
+function closeRegisterModal(){
+    document.getElementById('registerModal').classList.add('hidden');
+}
+async function exitVisitor(id){
+    try{await fetch(`${BASE_URL}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitor_id:id,out_time:new Date().toISOString()})});}catch(e){}
+    renderTable();
+}
+function refreshDashboard(){renderTable();}
+
+// ── LOGIN ─────────────────────────────────────────────────
+function performLogin(){
+    const name=document.getElementById('loginName').value.trim()||'Admin';
+    const empId=document.getElementById('loginEmpId').value.trim()||'QT-ADMIN-001';
+    document.getElementById('secName').innerText=name;
+    document.getElementById('secId').innerText=empId;
+    document.getElementById('dropdownName').innerText=name;
+    document.getElementById('dropdownId').innerText=empId;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    renderTable();
+}
+function logout(){location.reload();}
+function toggleProfileMenu(){document.getElementById('profileDropdown').classList.toggle('hidden');}
+
+document.addEventListener('click',function(e){
+    const w=document.getElementById('calWrapper');
+    if(w&&!w.contains(e.target)){document.getElementById('calPopup').classList.remove('show');document.getElementById('calTrigger').classList.remove('active');}
+    if(!e.target.closest('.relative'))document.getElementById('profileDropdown').classList.add('hidden');
+});// STORE USERS (temporary)
+let registeredUsers = [];
+
+// REGISTER USER
+function registerUser(){
+    const name = document.getElementById('regName').value.trim();
+    const empId = document.getElementById('regEmpId').value.trim();
+    const role = document.getElementById('regRole').value;
+
+    if(!name || !empId || !role){
+        alert("Please fill all fields");
+        return;
+    }
+
+    // Save user
+    registeredUsers.push({ name, empId, role });
+
+    alert("User Registered Successfully ✅");
+
+    // Clear form
+    document.getElementById('regName').value = '';
+    document.getElementById('regEmpId').value = '';
+    document.getElementById('regRole').value = '';
+
+    closeRegisterModal();
+}
+
+// OPEN USER LIST
+function toggleUserList(){
+    document.getElementById('userListModal').classList.remove('hidden');
+    loadUserList();
+}
+
+// CLOSE USER LIST
+function closeUserList(){
+    document.getElementById('userListModal').classList.add('hidden');
+}
+
+// LOAD USERS INTO LIST
+function loadUserList(){
+    const container = document.getElementById('userListContainer');
+    container.innerHTML = '';
+
+    if(registeredUsers.length === 0){
+        container.innerHTML = "<p class='text-gray-400'>No users registered</p>";
+        return;
+    }
+
+    registeredUsers.forEach((user, index) => {
+        const div = document.createElement('div');
+        div.className = "p-3 border rounded-xl flex justify-between";
+
+        div.innerHTML = `
+            <div>
+                <p class="font-medium">${user.name}</p>
+                <p class="text-xs text-gray-500">${user.empId}</p>
+            </div>
+            <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-xl">
+                ${user.role}
+            </span>
+        `;
+
+        container.appendChild(div);
+    });
+}
+</script><!-- REGISTER MODAL -->
+<div id="registerModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[120]">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold">Register User</h2>
+            <button onclick="closeRegisterModal()" class="text-2xl">×</button>
+        </div>
+
+        <div class="space-y-4">
+            <input id="regName" placeholder="Full Name" class="w-full px-4 py-2 border rounded-xl">
+            <input id="regEmpId" placeholder="Employee ID" class="w-full px-4 py-2 border rounded-xl">
+            
+            <select id="regRole" class="w-full px-4 py-2 border rounded-xl mt-3">
+                <option value="">Select Role</option>
+                <option value="employee">Employee</option>
+                <option value="security">Security</option>
+            </select>
+
+           <button onclick="registerUser()" class="w-full bg-purple-600 text-white py-2 rounded-xl mt-3">
+    Register
+</button>
+        </div>
+    </div>
+</div>
+<!-- REGISTERED USERS LIST -->
+<div id="userListModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[120]">
+    <div class="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl">
+        
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold">Registered Users</h2>
+            <button onclick="closeUserList()" class="text-2xl">×</button>
+        </div>
+
+        <div id="userListContainer" class="space-y-3 max-h-80 overflow-y-auto text-sm">
+            <!-- Users will load here -->
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

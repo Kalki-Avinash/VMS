@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Portal - Quadrant Technologies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .purple-gradient { background: linear-gradient(135deg, #6b46c1, #7c3aed); }
+        .card { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .visitors-box {
+            position: sticky;
+            top: 120px;
+            height: 640px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: white;
+            border-radius: 1.5rem;
+        }
+        .table-scroll { flex: 1; overflow-y: auto; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Login Screen -->
+<div id="loginScreen" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+    <div class="max-w-md w-full px-8 py-12 bg-white rounded-3xl shadow-2xl">
+        <div class="text-center">
+            <div class="purple-gradient w-20 h-20 rounded-3xl mx-auto flex items-center justify-center text-white text-5xl font-bold">Q</div>
+            <h1 class="text-3xl font-bold text-gray-900 mt-6">Welcome Back</h1>
+            <p class="text-gray-600 mt-2">Quadrant Employee Portal</p>
+        </div>
+        <div class="mt-10 space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <input id="loginName" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="Enter your full name">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Employee ID</label>
+                <input id="loginEmpId" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="e.g. QT-EMP-0456">
+            </div>
+            <button onclick="performLogin()" class="w-full purple-gradient text-white font-semibold py-6 rounded-2xl text-xl mt-4">
+                Login & Continue
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard" class="hidden flex h-screen">
+    <!-- Sidebar -->
+    <div class="w-72 bg-white border-r border-gray-200 flex flex-col">
+        <div class="p-8 border-b">
+            <div class="flex items-center gap-3">
+                <div class="purple-gradient w-11 h-11 rounded-2xl flex items-center justify-center text-white text-4xl font-bold">Q</div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Quadrant</h1>
+                    <p class="text-purple-600 text-sm font-medium">Technologies</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 px-6 py-10 space-y-2">
+            <button onclick="refreshMyVisitors()" class="w-full flex items-center gap-4 px-6 py-5 rounded-2xl bg-purple-50 text-purple-700 font-semibold">
+                <span class="text-2xl">📊</span> My Visitors
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-auto">
+        <nav class="bg-white border-b px-10 py-6 flex justify-between items-center sticky top-0 z-40">
+            <h2 class="text-3xl font-semibold text-gray-800">Visitor Entry</h2>
+            <div class="relative flex items-center gap-4">
+                <div class="text-right">
+                    <p class="font-semibold text-gray-800" id="empName"></p>
+                    <p class="text-sm text-gray-500" id="empDesignation">Employee</p>
+                </div>
+                <div onclick="toggleProfileDropdown()"
+                     class="w-11 h-11 bg-purple-100 text-purple-700 rounded-2xl flex items-center justify-center text-2xl cursor-pointer hover:scale-110 transition">
+                    👤
+                </div>
+                <div id="profileDropdown" class="hidden absolute top-14 right-0 bg-white rounded-3xl shadow-2xl p-6 w-72 z-50 border border-gray-200">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-14 h-14 bg-purple-100 text-purple-700 rounded-3xl flex items-center justify-center text-4xl">👤</div>
+                        <div>
+                            <p id="dropdownEmpName" class="font-semibold text-xl text-gray-900"></p>
+                            <p class="text-purple-600">Employee at Quadrant Technologies</p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-red-50 hover:bg-red-100 text-red-700 rounded-2xl font-medium text-lg">
+                        <span class="text-2xl">🚪</span> Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Register New Visitor -->
+            <div class="card bg-white rounded-3xl shadow-xl p-8">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-6">Register New Visitor</h3>
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-2">Visitor Full Name <span class="text-red-500">(Only letters)</span></label>
+                        <input id="visitorName" onkeypress="return onlyLetters(event)"
+                               class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="Enter visitor name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-2">Aadhaar Number <span class="text-red-500">(12 digits)</span></label>
+                        <input id="aadhaar" maxlength="14" oninput="formatAadhaar(this)"
+                               class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="1234 5678 9012">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-2">Visitor Email ID</label>
+                        <input id="visitorEmail" type="email" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="visitor@example.com">
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-2">Date</label>
+                            <input id="date" type="date" onchange="validateDateTime()" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-2">Time</label>
+                            <input id="time" type="time" onchange="validateDateTime()" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-2">Purpose of Visit</label>
+                        <input id="purpose" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="Meeting / Interview / Official Work">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-2">Upload Aadhaar (Image / PDF)</label>
+                        <input id="aadhaarFile" type="file" accept="image/*,.pdf"
+                               class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-2">Hosting Employee</label>
+                        <input id="employee" readonly class="w-full px-6 py-4 bg-gray-100 border border-gray-300 rounded-2xl text-lg">
+                    </div>
+                    <button onclick="submitData()" class="w-full purple-gradient text-white font-semibold py-6 rounded-2xl text-xl">
+                        Submit Visitor Entry
+                    </button>
+                    <p id="msg" class="text-center font-medium min-h-[30px]"></p>
+                </div>
+            </div>
+
+            <!-- My Recent Visitors -->
+            <div class="visitors-box p-8">
+                <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                    <h3 class="text-2xl font-semibold text-gray-800">My Recent Visitors</h3>
+                    <button onclick="refreshMyVisitors()" class="text-purple-600 hover:text-purple-700 font-medium">↻ Refresh</button>
+                </div>
+
+                <div class="flex gap-4 mb-6 flex-wrap flex-shrink-0">
+                    <input type="text" id="empSearch" placeholder="Search name or aadhaar"
+                           class="flex-1 px-4 py-3 border border-gray-300 rounded-2xl">
+                    <input type="date" id="empSingleDate" class="px-4 py-3 border border-gray-300 rounded-2xl">
+                    <button onclick="refreshMyVisitors()" class="px-6 py-3 bg-purple-600 text-white rounded-2xl">Apply</button>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="text-left p-4">S.No</th>
+                                <th class="text-left p-4">Visitor ID</th>
+                                <th class="text-left p-4">Visitor</th>
+                                <th class="text-left p-4">Aadhaar</th>
+                                <th class="text-left p-4">Date & Time</th>
+                                <th class="text-left p-4">Rescheduled Date</th>
+                                <th class="text-left p-4">Purpose</th>
+                                <th class="text-left p-4">Aadhaar Doc</th>
+                                <th class="text-left p-4 w-32">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reschedule Modal -->
+<div id="rescheduleModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-lg w-full mx-4">
+        <h3 class="text-2xl font-semibold text-gray-800 mb-2">Reschedule Visitor</h3>
+        <p id="modalVisitorName" class="text-gray-600 mb-8"></p>
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-2">New Date</label>
+                <input id="modalDate" type="date" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-2">New Time</label>
+                <input id="modalTime" type="time" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-2">New Purpose (optional)</label>
+                <input id="modalPurpose" class="w-full px-6 py-4 border border-gray-300 rounded-2xl text-lg" placeholder="Updated purpose">
+            </div>
+        </div>
+        <div class="flex gap-4 mt-10">
+            <button onclick="closeRescheduleModal()" class="flex-1 py-5 border border-gray-300 rounded-2xl font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+            <button onclick="performReschedule()" class="flex-1 purple-gradient text-white font-semibold py-5 rounded-2xl">Update Schedule</button>
+        </div>
+    </div>
+</div>
+
+<!-- Aadhaar View Modal -->
+<div id="aadhaarModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-3xl shadow-2xl p-6 max-w-2xl w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold text-gray-800">Aadhaar Document</h3>
+            <button onclick="closeAadhaarModal()" class="text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
+        </div>
+        <div id="aadhaarPreviewArea" class="flex items-center justify-center min-h-[300px] bg-gray-50 rounded-2xl overflow-auto">
+            <!-- preview injected here -->
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const API_BASE = "https://4ropzko5m1.execute-api.ap-south-1.amazonaws.com";
+
+let currentEmployee = "";
+let currentEmployeeId = "";
+let myVisitorsData = [];
+let currentRescheduleIndex = -1;
+
+// ==================== AADHAAR FILE STORAGE (base64 in memory) ====================
+// key = visitor_id, value = { dataUrl, type }
+const aadhaarStore = {};
+
+// ==================== ROBUST API CALLER ====================
+async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE}${endpoint}`;
+    console.log(`📡 Calling ${options.method || 'GET'} ${url}`);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers: { 'Content-Type': 'application/json', ...options.headers },
+            mode: 'cors',
+        });
+
+        let data;
+        const text = await response.text();
+        try { data = JSON.parse(text); }
+        catch (e) { data = { message: text || 'Invalid response' }; }
+
+        console.log(`📥 ${response.status} Response:`, data);
+
+        if (!response.ok) throw new Error(data.error || data.message || `HTTP ${response.status}`);
+        return data;
+
+    } catch (error) {
+        console.error("❌ API Error:", error);
+        if (error.message.includes("Failed to fetch") || error.message.includes("CORS")) {
+            alert("❌ Cannot connect to server.\n\nCORS or Network issue.\nMake sure you redeployed the API after enabling CORS.");
+        } else {
+            alert(`❌ ${error.message}`);
+        }
+        throw error;
+    }
+}
+
+// ==================== GENERATE QT001, QT002 ... ====================
+async function generateVisitorId() {
+    try {
+        const data = await apiCall('/visitors');
+        const all = Array.isArray(data) ? data : (data.Items || []);
+        // Simply total count + 1 — works regardless of old ID format
+        const next = all.length + 1;
+        return `QT${String(next).padStart(3, '0')}`;  // QT001, QT002, QT003...
+    } catch (e) {
+        return `QT${String(Date.now()).slice(-3)}`;
+    }
+}
+
+// ==================== LOGIN ====================
+async function performLogin() {
+    const empIdInput = document.getElementById('loginEmpId').value.trim();
+    if (!empIdInput) return alert("Please enter Employee ID");
+
+    console.clear();
+    console.log("🔄 Login attempt with ID:", empIdInput);
+
+    try {
+        const data = await apiCall('/user');
+        let employees = Array.isArray(data) ? data : (data.Items || []);
+        console.log(`✅ Loaded ${employees.length} employees`);
+
+        const user = employees.find(u =>
+            String(u.emp_id || '').toLowerCase() === empIdInput.toLowerCase() &&
+            String(u.role || '').toLowerCase() === "employee"
+        );
+
+        if (user) {
+            currentEmployee = user.name || "Employee";
+            currentEmployeeId = user.emp_id;
+            document.getElementById("employee").value = currentEmployee;
+            document.getElementById('empName').innerText = currentEmployee;
+            document.getElementById('dropdownEmpName').innerText = currentEmployee;
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            refreshMyVisitors();
+            showMessage("✅ Login Successful!", "text-green-600");
+        } else {
+            alert("❌ Access Denied. No matching employee found.");
+        }
+    } catch (error) {
+        console.error("Login failed:", error);
+    }
+}
+
+// ==================== SUBMIT VISITOR ====================
+async function submitData() {
+    const visitorName = document.getElementById("visitorName").value.trim();
+    let aadhaar = document.getElementById("aadhaar").value.trim().replace(/\s+/g, '');
+    const email = document.getElementById("visitorEmail").value.trim();
+    const purpose = document.getElementById("purpose").value.trim();
+    const date = document.getElementById("date").value;
+    const time = document.getElementById("time").value;
+    const fileInput = document.getElementById("aadhaarFile");
+
+    if (!visitorName || !purpose || !date || !time || aadhaar.length !== 12) {
+        return showMessage("Please fill all fields correctly", "text-red-600");
+    }
+
+    // Generate sequential QT001, QT002...
+    showMessage("⏳ Generating Visitor ID...", "text-blue-600");
+    const visitor_id = await generateVisitorId();
+
+    // Read Aadhaar file as base64 BEFORE API call (Promise ensures it's done)
+    if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                aadhaarStore[visitor_id] = { dataUrl: e.target.result, type: file.type };
+                console.log("📎 Aadhaar stored for", visitor_id);
+                resolve();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    const payload = {
+        visitor_id,
+        name: visitorName,
+        aadhaar: aadhaar,
+        email: email || "N/A",
+        date: date,
+        time: time,
+        purpose: purpose,
+        emp_name: currentEmployee,
+        emp_id: currentEmployeeId,
+        status: "pending",
+        rescheduled_date: "",
+        rescheduled_time: ""
+    };
+
+    try {
+        console.log("🚀 Submitting visitor:", payload);
+        await apiCall('/register', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        showMessage(`✅ Visitor Registered!<br>ID: <strong>${visitor_id}</strong>`, "text-green-600");
+
+        document.getElementById("visitorName").value = "";
+        document.getElementById("aadhaar").value = "";
+        document.getElementById("visitorEmail").value = "";
+        document.getElementById("purpose").value = "";
+        document.getElementById("time").value = "";
+        document.getElementById("aadhaarFile").value = "";
+
+        refreshMyVisitors();
+    } catch (error) {
+        console.error("Submit failed:", error);
+    }
+}
+
+// ==================== LOAD VISITORS ====================
+async function refreshMyVisitors() {
+    const tbody = document.getElementById("historyBody");
+    tbody.innerHTML = `<tr><td colspan="9" class="p-12 text-center text-gray-500">Loading your visitors...</td></tr>`;
+
+    try {
+        const data = await apiCall('/visitors');
+        let allVisitors = Array.isArray(data) ? data : (data.Items || []);
+
+        let myVisitors = allVisitors.filter(v =>
+            v.emp_id && String(v.emp_id).toLowerCase() === String(currentEmployeeId).toLowerCase()
+        );
+
+        const search = document.getElementById("empSearch").value.toLowerCase().trim();
+        const dateFilter = document.getElementById("empSingleDate").value;
+
+        if (search) {
+            myVisitors = myVisitors.filter(v =>
+                (v.name && v.name.toLowerCase().includes(search)) ||
+                (v.aadhaar && v.aadhaar.includes(search))
+            );
+        }
+        if (dateFilter) {
+            myVisitors = myVisitors.filter(v => v.date && v.date.split('T')[0] === dateFilter);
+        }
+
+        myVisitorsData = [...myVisitors];
+        tbody.innerHTML = "";
+
+        if (myVisitors.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="p-12 text-center text-gray-500">No visitors found</td></tr>`;
+            return;
+        }
+
+        myVisitors.forEach((v, index) => {
+            // Rescheduled date column value
+            const reschedDate = v.rescheduled_date
+                ? `<span class="text-amber-600 font-medium">${v.rescheduled_date}${v.rescheduled_time ? ' ' + v.rescheduled_time : ''}</span>`
+                : `<span class="text-gray-400 text-xs">—</span>`;
+
+            // Aadhaar View button — show only if file was uploaded in this session
+            const hasFile = aadhaarStore[v.visitor_id];
+            const aadhaarBtn = hasFile
+                ? `<button onclick="viewAadhaar('${v.visitor_id}')"
+                       class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded-xl w-full">
+                       🪪 View
+                   </button>`
+                : `<span class="text-gray-400 text-xs">Not uploaded</span>`;
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td class="p-4">${index + 1}</td>
+                <td class="p-4 font-medium text-purple-700">${v.visitor_id || 'QT---'}</td>
+                <td class="p-4">${v.name || '-'}</td>
+                <td class="p-4">${v.aadhaar || '-'}</td>
+                <td class="p-4">${v.date ? v.date.split('T')[0] : ''} ${v.time || ''}</td>
+                <td class="p-4">${reschedDate}</td>
+                <td class="p-4">${v.purpose || '-'}</td>
+                <td class="p-4">${aadhaarBtn}</td>
+                <td class="p-4">
+                    <button onclick="initReschedule(${index})"
+                            class="px-4 py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium rounded-xl w-full">
+                        📅 Reschedule
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (e) {
+        console.error("Refresh failed:", e);
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-red-600">Failed to load visitors.<br>Check CORS & redeploy API.</td></tr>`;
+    }
+}
+
+// ==================== AADHAAR VIEW ====================
+function viewAadhaar(visitor_id) {
+    const file = aadhaarStore[visitor_id];
+    if (!file) return alert("Aadhaar file not available in this session.");
+
+    const area = document.getElementById("aadhaarPreviewArea");
+
+    if (file.type === "application/pdf") {
+        area.innerHTML = `<iframe src="${file.dataUrl}" class="w-full" style="height:500px;border:none;border-radius:12px;"></iframe>`;
+    } else {
+        area.innerHTML = `<img src="${file.dataUrl}" alt="Aadhaar" class="max-w-full max-h-[500px] rounded-2xl object-contain">`;
+    }
+
+    document.getElementById("aadhaarModal").classList.remove("hidden");
+}
+
+function closeAadhaarModal() {
+    document.getElementById("aadhaarModal").classList.add("hidden");
+    document.getElementById("aadhaarPreviewArea").innerHTML = "";
+}
+
+// ==================== RESCHEDULE ====================
+async function performReschedule() {
+    const v = myVisitorsData[currentRescheduleIndex];
+    if (!v) return;
+
+    const newDate = document.getElementById("modalDate").value;
+    const newTime = document.getElementById("modalTime").value;
+    const newPurpose = document.getElementById("modalPurpose").value.trim();
+
+    if (!newDate || !newTime) return alert("Date and Time are required");
+
+    const updateData = {
+        visitor_id: v.visitor_id,
+        newDate: newDate,
+        newTime: newTime,
+        newPurpose: newPurpose || v.purpose
+    };
+
+    try {
+        await apiCall('/register', {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+        });
+
+        showMessage("✅ Rescheduled successfully!", "text-green-600");
+        closeRescheduleModal();
+        refreshMyVisitors();
+    } catch (error) {
+        console.error("Reschedule failed:", error);
+    }
+}
+
+function initReschedule(index) {
+    currentRescheduleIndex = index;
+    const v = myVisitorsData[index];
+    document.getElementById("modalVisitorName").innerHTML = `Rescheduling for: <strong>${v.name || 'Visitor'}</strong>`;
+    document.getElementById("modalDate").value = v.rescheduled_date || (v.date ? v.date.split('T')[0] : '');
+    document.getElementById("modalTime").value = v.rescheduled_time || v.time || '';
+    document.getElementById("modalPurpose").value = v.purpose || '';
+    document.getElementById("rescheduleModal").classList.remove("hidden");
+}
+
+function closeRescheduleModal() {
+    document.getElementById("rescheduleModal").classList.add("hidden");
+}
+
+// ==================== UTILITY ====================
+function showMessage(text, color) {
+    const msg = document.getElementById("msg");
+    msg.innerHTML = text;
+    msg.className = `text-center font-medium ${color}`;
+    setTimeout(() => msg.innerHTML = "", 6000);
+}
+
+function setMinDate() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById("date").min = today;
+    document.getElementById("modalDate").min = today;
+}
+
+function onlyLetters(e) {
+    const char = String.fromCharCode(e.which || e.keyCode);
+    if (!/^[a-zA-Z\s]$/.test(char)) e.preventDefault();
+}
+
+function formatAadhaar(input) {
+    let value = input.value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    if (value.length > 12) value = value.slice(0, 12);
+    let formatted = '';
+    for (let i = 0; i < value.length; i++) {
+        if (i > 0 && i % 4 === 0) formatted += ' ';
+        formatted += value[i];
+    }
+    input.value = formatted;
+}
+
+function validateDateTime() {}
+
+function toggleProfileDropdown() {
+    document.getElementById("profileDropdown").classList.toggle("hidden");
+}
+
+function logout() { location.reload(); }
+
+window.onload = () => { setMinDate(); };
+</script>
+</body>
+</html>
